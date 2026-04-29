@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<!-- 
+=============================================
+ফাইল: admin.html
+বর্ণনা: এডমিন ড্যাশবোর্ড, ভোটের রিপোর্ট এবং চার্ট দেখার জন্য।
+কীভাবে সম্পাদনা করবেন: UI কাস্টমাইজ করতে এই ফাইলটি পরিবর্তন করুন। 
+পাসওয়ার্ড products.js ফাইল থেকে নিয়ন্ত্রিত হয়।
+=============================================
+-->
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard — ভোটিং রিপোর্ট</title>
+  
+  <!-- Google Fonts: Hind Siliguri for Bengali -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg: #f0f2f5;
+      --card: #ffffff;
+      --accent: #6c63ff;
+      --accent-dark: #5a52d5;
+      --gold: #f59e0b;
+      --silver: #94a3b8;
+      --bronze: #b45309;
+      --success: #10b981;
+      --danger: #ef4444;
+      --text: #1f2937;
+      --text-light: #6b7280;
+    }
+
+    body {
+      font-family: 'Hind Siliguri', sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      margin: 0;
+    }
+
+    /* Print Styles */
+    @media print {
+      body { background-color: white; }
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      .shadow-sm, .shadow-md { box-shadow: none !important; border: 1px solid #e5e7eb; }
+      #password-modal { display: none !important; }
+    }
+
+    /* Password Modal */
+    #password-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(240, 242, 245, 0.9);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #password-modal.hidden {
+      display: none !important;
+    }
+
+    #dashboard-content {
+      display: none;
+    }
+
+    #dashboard-content.visible {
+      display: flex !important;
+    }
+    
+    .shake {
+      animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+    }
+
+    @keyframes shake {
+      10%, 90% { transform: translate3d(-1px, 0, 0); }
+      20%, 80% { transform: translate3d(2px, 0, 0); }
+      30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+      40%, 60% { transform: translate3d(4px, 0, 0); }
+    }
+
+    /* Admin Cards */
+    .admin-card {
+      background: var(--card);
+      border-radius: 12px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      overflow: hidden;
+      position: relative;
+      transition: transform 0.2s ease;
+      border: 1px solid #e5e7eb;
+    }
+    
+    .admin-card:hover {
+      transform: translateY(-2px);
+    }
+
+    /* Rank Styles */
+    .rank-badge {
+      position: absolute;
+      top: 0; left: 0;
+      padding: 4px 12px;
+      border-bottom-right-radius: 12px;
+      font-weight: bold;
+      color: white;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .rank-1 { background: linear-gradient(135deg, #ffd700, #f59e0b); border: 2px solid #f59e0b; }
+    .rank-2 { background: linear-gradient(135deg, #e2e8f0, #94a3b8); border: 2px solid #94a3b8; }
+    .rank-3 { background: linear-gradient(135deg, #d97706, #b45309); border: 2px solid #b45309; }
+    .rank-other { background: #4b5563; }
+    
+    /* Top 3 Glow */
+    .card-rank-1 { box-shadow: 0 0 15px rgba(245, 158, 11, 0.4); border-color: #f59e0b; }
+    .card-rank-2 { box-shadow: 0 0 15px rgba(148, 163, 184, 0.4); border-color: #94a3b8; }
+    .card-rank-3 { box-shadow: 0 0 15px rgba(180, 83, 9, 0.4); border-color: #b45309; }
+
+    /* Zero votes style */
+    .zero-votes { opacity: 0.6; filter: grayscale(0.5); }
+
+    /* Progress bar */
+    .progress-bar-container {
+      width: 100%;
+      height: 8px;
+      background-color: #f3f4f6;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 8px;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background-color: var(--accent);
+      border-radius: 4px;
+      transition: width 1s ease-in-out;
+    }
+
+    .rank-1 .progress-bar { background-color: #f59e0b; }
+    .rank-2 .progress-bar { background-color: #94a3b8; }
+    .rank-3 .progress-bar { background-color: #b45309; }
+
+    /* Horizontal Bar Chart */
+    .chart-container {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+      border: 1px solid #e5e7eb;
+    }
+
+    .chart-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+    }
+
+    .chart-label {
+      width: 120px;
+      text-align: right;
+      font-size: 0.875rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text-light);
+    }
+
+    .chart-bar-area {
+      flex: 1;
+      height: 24px;
+      background: #f3f4f6;
+      border-radius: 4px;
+      position: relative;
+    }
+
+    .chart-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent-dark));
+      border-radius: 4px;
+      width: 0%; /* Animated via JS */
+      transition: width 1.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 8px;
+      color: white;
+      font-size: 0.75rem;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body class="hidden-overflow">
+
+  <!-- Password Modal -->
+  <div id="password-modal" class="fixed inset-0 z-50">
+    <div id="password-card" class="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full mx-4 border border-gray-100 text-center">
+      <div class="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
+        <i class="fa-solid fa-lock text-2xl"></i>
+      </div>
+      <h2 class="text-2xl font-bold mb-2 text-gray-800">Admin Login</h2>
+      <p class="text-gray-500 text-sm mb-6">পাসওয়ার্ড প্রদান করে ড্যাশবোর্ডে প্রবেশ করুন</p>
+      
+        <input type="password" id="admin-password-input" 
+          class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#6c63ff] focus:border-transparent transition text-center text-lg tracking-widest mb-4" 
+          placeholder="••••••••" required>
+        
+        <p id="password-error" class="text-red-500 text-sm mb-4 hidden">ভুল পাসওয়ার্ড! আবার চেষ্টা করুন।</p>
+        
+        <button id="loginBtn"
+          class="w-full bg-[#6c63ff] hover:bg-[#5a52d5] text-white font-medium py-3 px-4 rounded-lg transition shadow-lg shadow-blue-500/30">
+          প্রবেশ করুন
+        </button>
+    </div>
+  </div>
+
+  <!-- Dashboard Main Content (Hidden Initially) -->
+  <div id="dashboard-content" class="hidden min-h-screen flex-col">
+    <!-- Navbar -->
+    <nav class="bg-white border-b border-gray-200 px-6 py-4 shadow-sm sticky top-0 z-30 no-print">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-[#6c63ff] text-white rounded-lg flex items-center justify-center shadow-md">
+            <i class="fa-solid fa-chart-pie text-xl"></i>
+          </div>
+          <h1 class="text-2xl font-bold text-gray-800">Admin Dashboard</h1>
+        </div>
+        
+        <div class="flex items-center gap-3">
+          <a href="index.html" class="text-gray-500 hover:text-[#6c63ff] transition font-medium text-sm flex items-center gap-1">
+            <i class="fa-solid fa-arrow-left"></i> ভোটিং পেজ
+          </a>
+          <button onclick="logout()" class="px-4 py-2 border border-gray-300 hover:bg-gray-50 rounded-lg text-gray-600 text-sm font-medium transition">
+            লগআউট
+          </button>
+        </div>
+      </div>
+    </nav>
+
+    <main class="flex-grow max-w-7xl mx-auto w-full px-4 sm:px-6 py-8">
+      
+      <!-- Stats Row -->
+      <div id="stats-container" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <!-- Rendered via JS -->
+      </div>
+
+      <!-- Controls Bar -->
+      <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 mb-8 flex flex-col md:flex-row justify-between items-center gap-4 no-print">
+        
+        <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <!-- Search -->
+          <div class="relative w-full sm:w-64">
+            <i class="fa-solid fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+            <input type="text" id="search-input" placeholder="পণ্য খুঁজুন..." 
+              class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c63ff]"
+              oninput="handleSearch()">
+          </div>
+          
+          <!-- Sort -->
+          <select id="sort-select" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#6c63ff] bg-white w-full sm:w-auto" onchange="handleSort()">
+            <option value="votes-desc">ভোট অনুযায়ী ↓</option>
+            <option value="votes-asc">ভোট অনুযায়ী ↑</option>
+            <option value="id-asc">আইটেম নম্বর ↑</option>
+            <option value="name-asc">নাম অনুযায়ী (A-Z)</option>
+          </select>
+        </div>
+
+        <div class="flex gap-2 w-full md:w-auto overflow-x-auto pb-2 md:pb-0">
+          <button onclick="refreshData()" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-rotate-right"></i> রিফ্রেশ
+          </button>
+          <button onclick="downloadCSV()" class="px-4 py-2 bg-[#10b981] hover:bg-[#059669] text-white rounded-lg font-medium transition shadow-md shadow-green-500/20 flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-file-csv"></i> CSV রফতানি
+          </button>
+          <button onclick="confirmReset()" class="px-4 py-2 bg-white border border-red-500 text-red-500 hover:bg-red-50 rounded-lg font-medium transition flex items-center gap-2 whitespace-nowrap">
+            <i class="fa-solid fa-trash-can"></i> রিসেট
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Layout: Grid + Chart -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <!-- Left: Product Grid (2/3 width on desktop) -->
+        <div class="lg:col-span-2">
+          <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+            <i class="fa-solid fa-list-ul text-[#6c63ff]"></i> সকল পণ্যের তালিকা
+          </h2>
+          <div id="admin-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 auto-rows-max">
+            <!-- Cards injected via JS -->
+          </div>
+        </div>
+        
+        <!-- Right: Charts (1/3 width on desktop) -->
+        <div class="lg:col-span-1 border-t lg:border-t-0 pt-8 lg:pt-0 no-print">
+          <div class="sticky top-24">
+            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">
+              <i class="fa-solid fa-chart-bar text-[#6c63ff]"></i> শীর্ষ ১০ পণ্য
+            </h2>
+            <div id="chart-container" class="chart-container">
+              <!-- Bars injected via JS -->
+            </div>
+            
+             <div class="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+              <h3 class="text-sm font-bold text-blue-800 mb-2">💡 টিপস</h3>
+              <p class="text-xs text-blue-600">CSV ডাউনলোডের মাধ্যমে আপনি এই ডেটা Excel এ এনালাইজ করতে পারবেন। পেজটি প্রিন্ট (Ctrl+P) করলে পরিষ্কার একটি রিপোর্ট পাওয়া যাবে।</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Link Configuration Data -->
+  <script src="products.js"></script>
+
+  <script>
+    // ==========================================
+    // গ্লোবাল ভেরিয়েবল
+    // ==========================================
+    let currentSort = 'votes-desc';
+    let currentSearch = '';
+    let processedData = []; // Holds sorted/filtered array of products with votes
+
+    // ==========================================
+    // অথেনটিকেশন (লগইন) লজিক
+    // ==========================================
+
+    // পেজ লোড হলে চেক করুন
+    document.addEventListener('DOMContentLoaded', function() {
+      if (sessionStorage.getItem('adminAuth') === 'true' || sessionStorage.getItem('admin_logged_in') === 'true') {
+        // Already logged in — skip modal
+        const modal = document.getElementById('password-modal');
+        ['flex','block','inline','inline-flex','grid','show','active','visible','open'].forEach(cls => modal.classList.remove(cls));
+        modal.classList.add('hidden');
+        modal.style.display = 'none';
+        
+        const dashboard = document.getElementById('dashboard-content');
+        dashboard.classList.remove('hidden');
+        dashboard.classList.add('visible');
+        dashboard.style.display = 'flex';
+        
+        document.body.style.overflow = 'auto';
+        document.body.classList.remove('hidden-overflow');
+        
+        refreshData();
+      } else {
+        // Show login modal
+        document.body.style.overflow = 'hidden';
+        const modal = document.getElementById('password-modal');
+        modal.classList.remove('hidden');
+        const dashboard = document.getElementById('dashboard-content');
+        dashboard.classList.add('hidden');
+      }
+
+      // Button click
+      document.getElementById('loginBtn').addEventListener('click', checkPassword);
+
+      // Enter key press
+      document.getElementById('admin-password-input').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          checkPassword(e);
+        }
+      });
+    });
+
+    // পাসওয়ার্ড চেক করার ফাংশন
+    function checkPassword(e) {
+      if (e) e.preventDefault();
+      const input = document.getElementById('admin-password-input').value;
+      const card = document.getElementById('password-card');
+      const errorMsg = document.getElementById('password-error');
+      
+      if (input === ADMIN_PASSWORD) {
+        // Save auth state
+        sessionStorage.setItem('adminAuth', 'true');
+        sessionStorage.setItem('admin_logged_in', 'true');
+        
+        showDashboard();
+      } else {
+        errorMsg.classList.remove('hidden');
+        card.classList.remove('shake');
+        void card.offsetWidth; // Trigger reflow
+        card.classList.add('shake');
+        document.getElementById('admin-password-input').value = '';
+      }
+    }
+
+    // ড্যাশবোর্ড দেখান
+    function showDashboard() {
+      // CORRECT: Hide modal multiple ways to ensure it works
+      const modal = document.getElementById('password-modal');
+      modal.style.display = 'none';
+      modal.style.visibility = 'hidden';
+      modal.style.opacity = '0';
+      ['flex','block','inline','inline-flex','grid','show','active','visible','open'].forEach(cls => modal.classList.remove(cls));
+      modal.classList.add('hidden');
+      
+      // Show dashboard
+      const dashboard = document.getElementById('dashboard-content');
+      dashboard.style.display = 'flex';
+      dashboard.classList.remove('hidden');
+      dashboard.classList.add('visible');
+      
+      document.body.style.overflow = 'auto';
+      document.body.classList.remove('hidden-overflow');
+      
+      // Load data immediately
+      refreshData();
+    }
+
+    // লগআউট
+    function logout() {
+      sessionStorage.removeItem('admin_logged_in');
+      location.reload();
+    }
+
+    // ==========================================
+    // ডেটা ফেচিং এবং প্রসেসিং
+    // ==========================================
+
+    // ভোট সংখ্যা আনুন
+    function getVotes(productId) {
+      return parseInt(localStorage.getItem(`vote_count_${productId}`) || '0');
+    }
+
+    // মূল ডেটা প্রসেসিং ফাংশন
+    function processVotingData() {
+      // 1. Map products and attach current votes
+      let data = PRODUCTS.map(p => ({
+        ...p,
+        votes: getVotes(p.id)
+      }));
+      
+      // Calculate total votes for percentage
+      const totalVotes = data.reduce((sum, item) => sum + item.votes, 0);
+
+      // 2. Sort by votes descending to assign ranks universally
+      data.sort((a, b) => b.votes - a.votes);
+      
+      // 3. Assign ranks and percentages
+      data.forEach((item, index) => {
+        // Handle ties in ranking slightly (simple approach: index + 1)
+        item.rank = index + 1;
+        item.percentage = totalVotes > 0 ? ((item.votes / totalVotes) * 100).toFixed(1) : 0;
+      });
+
+      // Save a copy of the pure ranked data before filtering/sorting for UI
+      const masterData = [...data];
+
+      // 4. Apply current Search filter
+      if (currentSearch) {
+        const query = currentSearch.toLowerCase();
+        data = data.filter(item => item.name.toLowerCase().includes(query));
+      }
+
+      // 5. Apply UI Sorting
+      if (currentSort === 'votes-desc') data.sort((a, b) => b.votes - a.votes);
+      if (currentSort === 'votes-asc') data.sort((a, b) => a.votes - b.votes);
+      if (currentSort === 'id-asc') data.sort((a, b) => a.id - b.id);
+      if (currentSort === 'name-asc') data.sort((a, b) => a.name.localeCompare(b.name, 'bn'));
+
+      processedData = data;
+      
+      return { data, totalVotes, masterData };
+    }
+
+    // ==========================================
+    // UI রেন্ডারিং লজিক
+    // ==========================================
+
+    // ডেটা রিফ্রেশ এবং UI রি-রেন্ডার
+    function refreshData() {
+      const { data, totalVotes, masterData } = processVotingData();
+      renderStats(totalVotes, masterData);
+      renderGrid(data, totalVotes);
+      renderChart(masterData, totalVotes);
+    }
+
+    // পরিসংখ্যান কার্ড রেন্ডার
+    function renderStats(totalVotes, masterData) {
+      const statsContainer = document.getElementById('stats-container');
+      
+      const participatingProducts = masterData.filter(p => p.votes > 0).length;
+      const topProduct = masterData[0]?.votes > 0 ? masterData[0] : { name: "নেই", votes: 0 };
+      
+      statsContainer.innerHTML = `
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-[#6c63ff]">
+          <p class="text-sm text-gray-500 mb-1 font-medium">মোট ভোট</p>
+          <h3 class="text-2xl font-bold text-gray-800">${totalVotes}</h3>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-[#10b981]">
+          <p class="text-sm text-gray-500 mb-1 font-medium">অংশগ্রহণকারী পণ্য</p>
+          <h3 class="text-2xl font-bold text-gray-800">${participatingProducts} <span class="text-sm text-gray-400 font-normal">/ ${PRODUCTS.length}</span></h3>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-[#f59e0b]">
+          <p class="text-sm text-gray-500 mb-1 font-medium">সর্বোচ্চ ভোট</p>
+          <h3 class="text-2xl font-bold text-gray-800">${topProduct.votes}</h3>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-[#ec4899]">
+             <p class="text-sm text-gray-500 mb-1 font-medium">শীর্ষ পণ্য</p>
+          <h3 class="text-lg font-bold text-gray-800 truncate" title="${topProduct.name}">${topProduct.name}</h3>
+        </div>
+      `;
+    }
+
+    // প্রোডাক্ট গ্রিড রেন্ডার
+    function renderGrid(renderedData, totalVotes) {
+      const grid = document.getElementById('admin-grid');
+      grid.innerHTML = '';
+
+      if (renderedData.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-12 text-center text-gray-400">কোনো পণ্য পাওয়া যায়নি।</div>`;
+        return;
+      }
+
+      renderedData.forEach((item) => {
+        let rankClass = 'rank-other';
+        let cardGlow = '';
+        let badgeIcon = `#${item.rank}`;
+        
+        if (item.votes > 0) { // Only top 3 if they have votes
+          if (item.rank === 1) { rankClass = 'rank-1'; cardGlow = 'card-rank-1'; badgeIcon = '🥇 #1'; }
+          else if (item.rank === 2) { rankClass = 'rank-2'; cardGlow = 'card-rank-2'; badgeIcon = '🥈 #2'; }
+          else if (item.rank === 3) { rankClass = 'rank-3'; cardGlow = 'card-rank-3'; badgeIcon = '🥉 #3'; }
+        }
+
+        const isZero = item.votes === 0;
+        
+        // Progress bar background class based on rank inside HTML string directly
+        let progressBgClass = 'bg-[#6c63ff]';
+        if(item.votes > 0){
+             if(item.rank === 1) progressBgClass = 'bg-[#f59e0b]';
+             if(item.rank === 2) progressBgClass = 'bg-[#94a3b8]';
+             if(item.rank === 3) progressBgClass = 'bg-[#b45309]';
+        }
+
+        const card = document.createElement('div');
+        card.className = `admin-card flex flex-col ${cardGlow} ${isZero ? 'zero-votes' : ''}`;
+        
+        card.innerHTML = `
+          ${item.votes > 0 ? `<div class="rank-badge ${rankClass} text-xs shadow-sm">${badgeIcon}</div>` : ''}
+          <div class="relative w-full aspect-square bg-gray-100 border-b border-gray-100">
+             <img src="${item.image}" onerror="this.onerror=null; this.src='${PLACEHOLDER}';" alt="${item.name}" class="w-full h-full object-cover">
+          </div>
+          <div class="p-4 flex-grow flex flex-col justify-between">
+            <div>
+              <p class="text-xs text-gray-400 mb-1">ID: ${item.id}</p>
+              <h3 class="font-bold text-gray-800 text-sm md:text-base leading-tight mb-2">${item.name}</h3>
+            </div>
+            
+            <div class="mt-2">
+              <div class="flex justify-between items-end mb-1">
+                <span class="text-xs font-medium text-gray-500">${item.percentage}%</span>
+                <span class="font-bold text-[#6c63ff] flex items-center gap-1">
+                   <i class="fa-solid fa-heart text-xs text-pink-500"></i> ${item.votes}
+                </span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar ${progressBgClass}" style="width: 0%" data-target-width="${item.percentage}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
+        
+        grid.appendChild(card);
+      });
+
+      // Animate progress bars after appending
+      setTimeout(() => {
+        document.querySelectorAll('.progress-bar').forEach(bar => {
+          bar.style.width = bar.getAttribute('data-target-width');
+        });
+      }, 50);
+    }
+
+    // বার চার্ট রেন্ডার
+    function renderChart(masterData, totalVotes) {
+      const container = document.getElementById('chart-container');
+      container.innerHTML = '';
+      
+      // Top 10 only for chart
+      const top10 = masterData.slice(0, 10);
+      
+      // Find highest vote in top 10 for relative scaling
+      const maxVotes = top10.length > 0 ? top10[0].votes : 0;
+
+      if (maxVotes === 0) {
+        container.innerHTML = `<p class="text-sm text-gray-400 text-center py-4">চার্ট দেখানোর জন্য পর্যাপ্ত ভোট নেই।</p>`;
+        return;
+      }
+
+      top10.forEach((item, index) => {
+        if(item.votes === 0) return; // Don't show 0 votes in top 10 chart
+
+        // Scale relative to highest vote (Max = 100% width of bar area)
+        const barWidth = `${(item.votes / maxVotes) * 100}%`;
+        
+        const row = document.createElement('div');
+        row.className = 'chart-row';
+        row.innerHTML = `
+          <div class="chart-label" title="${item.name}">${index + 1}. ${item.name}</div>
+          <div class="chart-bar-area">
+            <div class="chart-bar-fill" style="width: 0%" data-target="${barWidth}">
+               ${item.votes}
+            </div>
+          </div>
+        `;
+        container.appendChild(row);
+      });
+
+      // Animate custom bars
+      setTimeout(() => {
+        container.querySelectorAll('.chart-bar-fill').forEach(bar => {
+          bar.style.width = bar.getAttribute('data-target');
+        });
+      }, 100);
+    }
+
+    // ==========================================
+    // ইভেন্ট হ্যান্ডলাররা
+    // ==========================================
+
+    function handleSort() {
+      currentSort = document.getElementById('sort-select').value;
+      refreshData();
+    }
+
+    function handleSearch() {
+      currentSearch = document.getElementById('search-input').value;
+      refreshData();
+    }
+
+    // ==========================================
+    // ইউটিলিটি: CSV এবং Reset
+    // ==========================================
+
+    // CSV ডাউনলোড ফাংশন
+    function downloadCSV() {
+      const { masterData } = processVotingData();
+      
+      let csvContent = "র্যাংক,আইটেম আইডি,পণ্যের নাম,ভোট সংখ্যা,শতকরা হার(%)\n";
+      
+      masterData.forEach(p => {
+        // Escape names that might have commas
+        const safeName = `"${p.name.replace(/"/g, '""')}"`;
+        csvContent += `${p.rank},${p.id},${safeName},${p.votes},${p.percentage}\n`;
+      });
+
+      // Create Blob and Download
+      const blob = new Blob(["\uFEFF"+csvContent], { type: 'text/csv;charset=utf-8;' }); // \uFEFF is BOM for UTF-8 Excel support
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      const dateStr = new Date().toISOString().split('T')[0];
+      
+      link.setAttribute("href", url);
+      link.setAttribute("download", `voting_report_${dateStr}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // সব ভোট রিসেট করার ফাংশন
+    function confirmReset() {
+      if(confirm("সতর্কতা: আপনি কি সত্যিই সমস্ত ভোটের ডেটা মুছে ফেলতে চান? এটি আর ফিরে পাওয়া যাবে না।")) {
+        // Clear only vote counts from local storage
+        PRODUCTS.forEach(p => {
+          localStorage.removeItem(`vote_count_${p.id}`);
+        });
+        
+        alert("সব ভোট সফলভাবে মুছে ফেলা হয়েছে।");
+        refreshData();
+      }
+    }
+
+  </script>
+</body>
+</html>
